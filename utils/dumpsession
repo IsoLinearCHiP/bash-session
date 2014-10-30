@@ -1,0 +1,58 @@
+#!/bin/bash
+_ppid() { { if [ -z $1 ]; then read -p "PID: " pid; fi; ps -p ${pid:-$$} -o ppid= ;} | awk '{print $1}' ;}
+_sourcecheck() { [ ${FUNCNAME[1]} == "source" ];}
+_exportsession() {
+  # make a copy of the current state
+  local _HISTFILE=$HISTFILE
+  local _HISTSIZE=$HISTSIZE
+  local _HISTFILESIZE=$HISTFILESIZE
+  
+  SESSDIR="$_BASEDIR/$_PPID/$_PID"
+  mkdir -p $SESSDIR
+
+  # dump shopt
+  shopt -p > $SESSDIR/shopt
+  
+  # dump screen metainfo
+  env | grep -P "^STY=|^WINDOW=" > $SESSDIR/screeninfo
+
+  # dump environment vars
+  env > $SESSDIR/env
+
+  # dump dirs
+  dirs > $SESSDIR/dirs
+
+  # dump aliases
+  alias -p > $SESSDIR/aliases
+
+  # dump history
+  local _SHOPT=`shopt -p`
+  shopt -s histappend # make sure histappend is on
+  HISTFILE="$SESSDIR/.bash_history"
+  HISTSIZE=100000 # I sincerely hope I never run a single bash instance this long
+  unset HISTFILESIZE
+  history -a
+
+  # restore prev state
+  eval "$_SHOPT" &> /dev/null
+  HISTFILE=$_HISTFILE
+  HISTSIZE=$_HISTSIZE
+  HISTFILESIZE=$_HISTFILESIZE
+}
+
+_PID=$$
+# _PPID=$(_ppid $_PID)
+_PPID=$PPID
+_BASEDIR="$HOME/.config/bashsessions"
+
+_sourcecheck || { echo "Script needs to be sourced"; exit 1; }
+mkdir -p "$_BASEDIR"
+# echo "would create sesssion $PPID/$PID"
+_exportsession
+
+unset _BASEDIR
+unset _exportsession
+unset _sourcecheck
+unset _ppid
+unset _PPID
+unset _PID
